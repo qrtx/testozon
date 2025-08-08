@@ -1,18 +1,15 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Учет смен — Liquid Glass</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: {
-        colors: { brand: {500:'#2b85ff'}, accent:{500:'#ff4dc7'} },
-        fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','Segoe UI','Roboto','Arial'] }
-      }}
-    }
-  </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Учёт смен ОЗОН</title>
+  <link rel="stylesheet" href="style.css?v=43" />
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    
+  <!-- Glassmorphism overrides -->
   <style>
     :root {
       --glass-bg: rgba(255,255,255,0.32);
@@ -24,285 +21,213 @@
       --glass-highlight: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.12) 46%, rgba(255,255,255,0) 60%);
     }
     body { background: linear-gradient(180deg, #f6fbff, #ffffff 40%, #eef6ff); }
-    .bg-blobs{ position:fixed; inset:0; pointer-events:none; z-index:-1; overflow:hidden; }
-    .blob{ position:absolute; border-radius:9999px; filter:blur(80px) saturate(120%); opacity:.45; will-change:transform; }
-    .blob.a{ width:720px;height:520px;left:-140px;top:-100px;
+    /* animated, fixed, light blobs */
+    .liquid-blobs{ position:fixed; inset:0; pointer-events:none; z-index:-1; overflow:hidden; }
+    .liquid-blobs .blob{ position:absolute; border-radius:9999px; filter:blur(80px) saturate(120%); opacity:.45; will-change:transform; }
+    .liquid-blobs .a{ width:720px;height:520px;left:-140px;top:-100px;
       background: radial-gradient(60% 60% at 40% 40%, rgba(43,133,255,.35), rgba(255,255,255,0) 70%),
                   radial-gradient(60% 60% at 70% 60%, rgba(255,77,199,.28), rgba(255,255,255,0) 75%);
       animation:a 55s ease-in-out infinite alternate; }
-    .blob.b{ width:820px;height:620px;right:-220px;bottom:-220px;
+    .liquid-blobs .b{ width:820px;height:620px;right:-220px;bottom:-220px;
       background: radial-gradient(60% 60% at 60% 40%, rgba(139,193,255,.28), rgba(255,255,255,0) 70%),
                   radial-gradient(60% 60% at 30% 70%, rgba(255,77,199,.22), rgba(255,255,255,0) 75%);
       animation:b 65s ease-in-out infinite alternate; }
     @keyframes a{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(30px,20px,0) scale(1.06)}}
     @keyframes b{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-25px,-15px,0) scale(1.05)}}
+    /* glass surfaces */
     .glass{ background:var(--glass-bg); backdrop-filter:blur(24px) saturate(170%); -webkit-backdrop-filter:blur(24px) saturate(170%);
       border-radius:24px; box-shadow:var(--glass-shadow), var(--glass-inset); position:relative; overflow:hidden; }
-    .glass:before{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:var(--glass-highlight); }
-    .glass:after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    .glass::before{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:var(--glass-highlight); }
+    .glass::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
       box-shadow:0 0 0 1px var(--glass-stroke-outer), inset 0 0 0 1px var(--glass-stroke); }
     .glass-ink{ background:var(--glass-bg-strong); backdrop-filter:blur(22px) saturate(170%); -webkit-backdrop-filter:blur(22px) saturate(170%);
       border-radius:18px; box-shadow:var(--glass-shadow), var(--glass-inset); position:relative; }
-    .glass-ink:after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    .glass-ink::after{ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
       box-shadow:0 0 0 1px var(--glass-stroke-outer), inset 0 0 0 1px var(--glass-stroke); }
-    .view-enter{opacity:0; transform:translateY(6px) scale(.985)}
-    .view-enter-active{transition:opacity .22s ease, transform .22s ease; opacity:1; transform:translateY(0) scale(1)}
-    .view-leave{opacity:1; transform:translateY(0) scale(1)}
-    .view-leave-active{transition:opacity .18s ease, transform .18s ease; opacity:0; transform:translateY(6px) scale(.985)}
-    .no-scrollbar::-webkit-scrollbar{display:none}
-    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+    /* sticky bottom nav */
+    .tabbar{ position:fixed; left:0; right:0; bottom:12px; display:flex; justify-content:center; z-index:1000; padding:0 16px; }
+    .tabbar .wrap{ display:flex; gap:6px; padding:6px; border-radius:24px; }
+    .tabbar button{ border:none; padding:8px 10px; border-radius:16px; font-weight:600; font-size:12px; cursor:pointer; }
+    .tabbar button.active{ outline:2px solid rgba(43,133,255,.4); }
+    /* sections spacing */
+    main.container > section{ margin: 16px 0; padding: 16px; border-radius: 20px; }
+    /* tweak original topbar */
+    header.topbar{ border-radius: 20px; margin: 8px 12px; padding: 12px 16px; }
   </style>
+
 </head>
-<body class="font-sans text-gray-900 min-h-screen">
-  <div class="bg-blobs">
-    <div class="blob a"></div>
-    <div class="blob b"></div>
+<body>
+  <div class="liquid-blobs"><div class="blob a"></div><div class="blob b"></div></div>
+
+<div class="gradient-bg">
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+        <feColorMatrix in="blur" mode="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8" result="goo" />
+        <feBlend in="SourceGraphic" in2="goo" />
+      </filter>
+    </defs>
+  </svg>
+  <div class="gradients-container">
+    <div class="g1"></div>
+    <div class="g2"></div>
+    <div class="g3"></div>
+    <div class="g4"></div>
+    <div class="g5"></div>
+    <div class="interactive"></div>
+  </div>
+</div>
+
+  <header class="glass topbar"><span class="version">версия: 3.2</span>Учёт смен ОЗОН</header>
+  <main class="container">
+    
+  <div style="position:absolute; top:12px; right:20px;">
+    <button class="glass-ink" onclick="toggleAdminLogin()" style="padding:5px 10px; border-radius:4px; background:#44444457; color:#fff; border:none;">Админка</button>
   </div>
 
-  <div class="mx-auto max-w-screen-md px-4 pb-28 pt-4">
-    <header class="glass p-4 sm:p-5 mb-6 flex items-center justify-between">
-      <div class="flex items-center gap-3 sm:gap-4">
-        <div class="h-12 w-12 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center text-white font-bold select-none">УС</div>
-        <div>
-          <h1 class="text-xl font-semibold">Учет смен</h1>
-          <p class="text-sm text-gray-600">Liquid Glass · минимализм</p>
-        </div>
-      </div>
-      <button id="btn-login" class="glass-ink px-3 py-2 rounded-xl text-sm font-medium">Войти</button>
-    </header>
 
-    <main id="views" class="space-y-4">
-      <section id="view-checkin" class="glass p-4 sm:p-5">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Отметиться</h2>
-          <span class="text-xs text-gray-600">#checkin</span>
-        </header>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div class="space-y-2">
-            <label class="text-sm text-gray-700">Сотрудник</label>
-            <select id="employeeSelect" class="w-full glass-ink rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-brand-500">
-              <option value="">Выберите имя</option>
-              <option>Сергей З.</option><option>Сергей Ш.</option><option>Арина</option><option>Андрей</option>
-              <option>Валера</option><option>Даша</option><option>Ростислав</option><option>Алексей</option><option>Саня</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm text-gray-700">ПВЗ</label>
-            <select id="pointSelect" class="w-full glass-ink rounded-xl px-3 py-3 outline-none focus:ring-2 focus:ring-brand-500">
-              <option value="">Выберите пункт</option>
-              <option>МО_ХИМКИ_89</option><option>ХИМКИ_241</option>
-            </select>
-          </div>
-          <div class="sm:col-span-2 flex gap-3 pt-1">
-            <button id="markShiftBtn" class="glass-ink px-4 py-3 rounded-xl font-semibold flex-1">Отметиться</button>
-            <button id="cancelCheckinBtn" class="glass-ink px-4 py-3 rounded-xl font-medium">Отмена</button>
-          </div>
-          <p id="checkinStatus" class="sm:col-span-2 text-sm text-gray-600"></p>
-        </div>
-      </section>
-
-      <section id="view-calendar" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Календарь</h2>
-          <span class="text-xs text-gray-600">#calendar</span>
-        </header>
-        <div id="calendarContainer" class="h-[420px] sm:h-[520px] w-full rounded-xl glass-ink overflow-hidden no-scrollbar flex items-center justify-center">
-          <div class="text-center text-sm text-gray-600 p-6">Здесь рендерится календарь (встраиваемый как в твоём бэке).</div>
-        </div>
-      </section>
-
-      <section id="view-payroll" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Зарплаты</h2>
-          <span class="text-xs text-gray-600">#payroll</span>
-        </header>
-        <div class="space-y-3">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="glass-ink rounded-xl p-3"><div class="text-xs text-gray-600">Период</div><div id="periodLabel" class="text-base font-semibold">11–25</div></div>
-            <div class="glass-ink rounded-xl p-3"><div class="text-xs text-gray-600">Смен</div><div id="shiftsCount" class="text-base font-semibold">—</div></div>
-            <div class="glass-ink rounded-xl p-3"><div class="text-xs text-gray-600">Ставка</div><div id="rate" class="text-base font-semibold">— ₽</div></div>
-            <div class="glass-ink rounded-xl p-3"><div class="text-xs text-gray-600">Итого</div><div id="total" class="text-base font-semibold">— ₽</div></div>
-          </div>
-          <div id="payrollTable" class="glass-ink rounded-xl p-2 overflow-x-auto no-scrollbar">
-            <table class="w-full min-w-[560px] text-sm">
-              <thead><tr class="text-left"><th class="py-2 px-3 font-semibold">Сотрудник</th><th class="py-2 px-3 font-semibold">Смен</th><th class="py-2 px-3 font-semibold">Ставка</th><th class="py-2 px-3 font-semibold">Сумма</th></tr></thead>
-              <tbody id="payrollBody"><tr class="border-t border-white/40"><td class="py-2 px-3">Пример</td><td class="py-2 px-3">—</td><td class="py-2 px-3">—</td><td class="py-2 px-3">—</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="view-requisites" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Реквизиты для выплаты</h2>
-          <span class="text-xs text-gray-600">#requisites</span>
-        </header>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="space-y-2">
-            <label class="text-sm text-gray-700">Сотрудник</label>
-            <select id="reqEmployee" class="glass-ink rounded-xl px-3 py-3 w-full focus:ring-2 focus:ring-brand-500">
-              <option value="">Выберите имя</option>
-            </select>
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm text-gray-700">Телефон</label>
-            <input id="reqPhone" type="tel" placeholder="+79999999999" class="glass-ink rounded-xl px-3 py-3 w-full focus:ring-2 focus:ring-brand-500" />
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm text-gray-700">Банк</label>
-            <input id="reqBank" type="text" placeholder="Альфа" class="glass-ink rounded-xl px-3 py-3 w-full focus:ring-2 focus:ring-brand-500" />
-          </div>
-          <div class="sm:col-span-3 flex gap-3 pt-1">
-            <button id="saveReqBtn" class="glass-ink rounded-xl px-4 py-3 font-semibold flex-1">Сохранить</button>
-            <button id="clearReqBtn" class="glass-ink rounded-xl px-4 py-3 font-medium">Очистить</button>
-          </div>
-        </div>
-        <div id="reqList" class="mt-4 glass-ink rounded-xl p-2 overflow-x-auto no-scrollbar">
-          <table class="w-full min-w-[560px] text-sm">
-            <thead><tr class="text-left"><th class="py-2 px-3 font-semibold">Сотрудник</th><th class="py-2 px-3 font-semibold">Реквизиты</th><th class="py-2 px-3 font-semibold w-24">Действия</th></tr></thead>
-            <tbody id="reqBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section id="view-rules" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Правила ПВЗ</h2>
-          <span class="text-xs text-gray-600">#rules</span>
-        </header>
-        <div id="rulesContent" class="prose prose-sm max-w-none text-gray-800">
-          <p>Полные тексты правил будут загружаться из БД и адаптироваться под экран.</p>
-        </div>
-      </section>
-
-      <section id="view-contacts" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Контакты админов</h2>
-          <span class="text-xs text-gray-600">#contacts</span>
-        </header>
-        <ul id="adminsList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <li class="glass-ink rounded-xl p-3"><div class="text-sm font-semibold">Андрей</div><div class="text-xs text-gray-600">@andrey • +7 900 000‑00‑00</div></li>
-        </ul>
-      </section>
-
-      <section id="view-admin" class="glass p-4 sm:p-5 hidden">
-        <header class="mb-3 flex items-center justify-between">
-          <h2 class="text-base sm:text-lg font-semibold">Админ‑панель</h2>
-          <button id="logoutBtn" class="glass-ink rounded-xl px-3 py-2 text-sm font-medium">Выйти</button>
-        </header>
-        <div class="text-sm text-gray-700">Действия по сотрудникам, пунктам, ставкам — скрыто до входа.</div>
-      </section>
-    </main>
+    
   </div>
+    <section class='form-block'>
+      <select id='employee' class="glass-ink">
+        <option>Сергей З.</option><option>Сергей Ш.</option><option>Арина</option><option>Андрей</option>
+        <option>Валера</option><option>Даша</option><option>Ростислав</option><option>Алексей</option><option>Саня</option>
+      </select>
+      <select id='point' class="glass-ink">
+        <option value='МО_ХИМКИ_89'>МО_ХИМКИ_89 (2666₽)</option>
+        <option value='ХИМКИ_241'>ХИМКИ_241 (2000₽)</option>
+      </select>
+      <button onclick='markShift()' class='glass-ink'>Отметиться</button>
+    </section>
+    <section id='calendar'></section>
 
-  <nav class="fixed bottom-3 left-0 right-0 mx-auto max-w-screen-md px-4">
-    <div class="glass rounded-3xl px-2 py-1">
-      <ul class="grid grid-cols-5 gap-1">
-        <li><button data-tab="checkin" class="tab-btn glass-ink rounded-2xl px-2 py-2 text-xs font-semibold w-full">Отметка</button></li>
-        <li><button data-tab="calendar" class="tab-btn glass-ink rounded-2xl px-2 py-2 text-xs font-semibold w-full">Календарь</button></li>
-        <li><button data-tab="payroll" class="tab-btn glass-ink rounded-2xl px-2 py-2 text-xs font-semibold w-full">Зарплаты</button></li>
-        <li><button data-tab="requisites" class="tab-btn glass-ink rounded-2xl px-2 py-2 text-xs font-semibold w-full">Реквизиты</button></li>
-        <li><button data-tab="contacts" class="tab-btn glass-ink rounded-2xl px-2 py-2 text-xs font-semibold w-full">Контакты</button></li>
-      </ul>
+    
+<section class='rules-block'>
+  <h2>📖 Правила и штрафы</h2>
+  <pre style="white-space: pre-wrap; word-break: break-word;">
+ВАЖНО: конкретный пункт не может получить более одного штрафа по одному пункту в день.
+    
+1.1. Нарушение графика смен — отсутствие без предупреждения или несогласованная смена — штраф 750₽.
+1.2. Несоблюдение чистоты на рабочем месте — мусор, бардак, неубранная зона клиента — штраф 500₽.
+1.3. Курение в помещении или возле входа — включая электронные сигареты — штраф 750₽.
+1.4. Не принятие перевозки вовремя — если транспорт стоял и ждал более 10 минут — штраф 500₽.
+1.5. Неопрятный вид сотрудника — грязная форма, отсутствие бейджа — штраф 500₽.
+1.6. Отказ от публикации брендирования ПВЗ — фото на фоне логотипа или флагов OZON — штраф 500₽, при повторном отказе — 1000₽.
+1.7. Приход второго сотрудника без предупреждения — незарегистрированный человек на смене — штраф 500₽.
+1.8. Грубость клиенту — повышенный тон, отказ от обслуживания, негативные комментарии — штраф 750₽.
+1.9. Присутствие посторонних лиц на территории ПВЗ без согласования — штраф 750₽.
+2.1. Несвоевременное предоставление информации (смена, приём тары, инцидент) — штраф 500₽.
+2.2. Несоблюдение этических норм при общении с клиентом. Нахождение на рабочем месте в головном уборе или верхней одежды — штраф 500₽.
+2.3. Присутствие в ПВЗ после 23:59 без согласования — штраф 500₽.
+2.4. Отсутствие сотрудника в зоне видимости камер, за исключением официальных перерывов — штраф 500₽.
+2.5. Приём возвратной тары без согласования — штраф 500₽.
+  </pre>
+</section>
+
+
+    
+<section class='bank-block'>
+  <h2>💳 Реквизиты для выплаты зарплаты</h2>
+  <div class="bank-form">
+    <select id="bankEmployee" class="glass-ink"></select>
+    <input id="bankPhone" placeholder="+79999999999" / class="glass-ink">
+    <input id="bankName" placeholder="Название банка" / class="glass-ink">
+    <button onclick="submitBankInfo()" class="glass-ink">Добавить</button>
+  </div>
+  <ul id="bankList"></ul>
+</section>
+
+<section class='contacts-block'>
+      <h2>📇 Контакты</h2>
+      <p><strong>Администратор:</strong> Сергей — <a href="https://t.me/sergeiseveroff" target="_blank">@sergeiseveroff</a></p>
+      <p><strong>Руководитель:</strong> Андрей — <a href="https://t.me/qwertyxyry" target="_blank">@qwertyxyry</a></p>
+    </section>
+  
+<div id="adminPanel" class="glass admin-panel" style="display:none;">
+  <h3>⚙️ Управление сотрудниками и пунктами</h3>
+  <div>
+    <label>Добавить сотрудника: </label>
+    <input id="newEmp" placeholder="Имя" / class="glass-ink">
+    <button onclick="addEmployee()" class="glass-ink">Добавить</button>
+    <label style="margin-left:20px;">Удалить:</label>
+    <select id="deleteEmp"></select>
+    <button onclick="deleteEmployee()" class="glass-ink">Удалить</button>
+  </div>
+  <div style="margin-top:20px;">
+      <label>Добавить пункт: </label>
+      <input id="newPoint" placeholder="Название" / class="glass-ink">
+      <input id="newRate" placeholder="Зарплата" / class="glass-ink">
+      <button onclick="addPoint()" class="glass-ink">Добавить</button>
+      <label style="margin-left:20px;">Удалить:</label>
+      <select id="deletePoint"></select>
+      <button onclick="deletePoint()" class="glass-ink">Удалить</button>
+  </div>
+  <div style="margin-top:20px;">
+    <button class="glass-ink" onclick="adminLogout()" style="background:#a00;">Выйти из админки</button>
+  </div>
+</div>
+<div id="salary-summary-container" class="glass" style="padding:12px; border-radius:16px; margin:16px 0;"></div>
+
+<div id="summary"></div>
+</main>
+
+
+  <footer class="footer">
+    Сделано в 2025 году — <strong>@polychromaticFox</strong> и <strong>@fox-dev-girl</strong>
+  </footer>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBx7N43Wpf0Ohh6197YLlv-ppeHHaJq_TQ",
+      authDomain: "ozon-shifts.firebaseapp.com",
+      databaseURL: "https://ozon-shifts-default-rtdb.firebaseio.com",
+      projectId: "ozon-shifts",
+      storageBucket: "ozon-shifts.firebasestorage.app",
+      messagingSenderId: "60204010303",
+      appId: "1:60204010303:web:09997f126723460335618a"
+    };
+  </script>
+  <script src="script.js?v=43"></script>
+
+  <div id="preloader" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:white;z-index:9999;display:flex;align-items:center;justify-content:center;font-size:24px;">
+    Загрузка...
+  </div>
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("preloader").style.display = "none";
+      }, 1500);
+    });
+  </script>
+
+  <nav class="tabbar">
+    <div class="wrap glass">
+      <button data-target=".form-block" class="glass-ink">Отметка</button>
+      <button data-target="#calendar" class="glass-ink">Календарь</button>
+      <button data-target=".bank-block" class="glass-ink">Реквизиты</button>
+      <button data-target=".rules-block" class="glass-ink">Правила</button>
+      <button data-target=".contacts-block" class="glass-ink">Контакты</button>
     </div>
   </nav>
-
   <script>
-    if (!window.__oz_liquid_init__) {
-      window.__oz_liquid_init__ = true;
-      (function(){
-        const tabs = ['checkin','calendar','payroll','requisites','rules','contacts','admin'];
-        const byId = id => document.getElementById(id);
-
-        function animateShow(sec){
-          sec.classList.remove('hidden');
-          sec.classList.add('view-enter');
-          requestAnimationFrame(()=>{
-            sec.classList.add('view-enter-active');
-            sec.addEventListener('transitionend', ()=>{
-              sec.classList.remove('view-enter','view-enter-active');
-            }, {once:true});
-          });
-        }
-        function animateHide(sec){
-          sec.classList.add('view-leave');
-          requestAnimationFrame(()=>{
-            sec.classList.add('view-leave-active');
-            sec.addEventListener('transitionend', ()=>{
-              sec.classList.remove('view-leave','view-leave-active');
-              sec.classList.add('hidden');
-            }, {once:true});
-          });
-        }
-
-        let current = localStorage.getItem('activeTab') || 'checkin';
-        document.querySelectorAll('[id^="view-"]').forEach(sec=>sec.classList.add('hidden'));
-        byId('view-'+current)?.classList.remove('hidden');
-
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
-          const tab = btn.dataset.tab;
-          if (tab === current) return;
-          const prev = byId('view-'+current);
-          const next = byId('view-'+tab);
-          if (prev) animateHide(prev);
-          if (next) animateShow(next);
-          document.querySelectorAll('.tab-btn').forEach(b => {
-            const act = b.dataset.tab===tab;
-            b.classList.toggle('ring-2', act);
-            b.classList.toggle('ring-brand-500', act);
-          });
-          localStorage.setItem('activeTab', tab);
-          current = tab;
-        }));
-
-        // Hooks for integration
-        window.fillEmployees = function(list){
-          const sel1 = byId('employeeSelect');
-          const sel2 = byId('reqEmployee');
-          if (!sel1 || !sel2) return;
-          sel1.replaceChildren(new Option('Выберите имя',''));
-          sel2.replaceChildren(new Option('Выберите имя',''));
-          list.forEach(n => { sel1.add(new Option(n,n)); sel2.add(new Option(n,n)); });
-        }
-        window.fillPoints = function(list){
-          const sel = byId('pointSelect'); if(!sel) return;
-          sel.replaceChildren(new Option('Выберите пункт',''));
-          list.forEach(p => sel.add(new Option(p,p)));
-        }
-        window.renderCalendar = function(html){ const c = byId('calendarContainer'); if (c) c.innerHTML = html; }
-        window.renderPayroll = function(rows){
-          const body = byId('payrollBody'); if(!body) return; body.innerHTML='';
-          rows.forEach(r => {
-            const tr = document.createElement('tr'); tr.className='border-t border-white/40';
-            tr.innerHTML = '<td class="py-2 px-3">'+r.name+'</td><td class="py-2 px-3">'+r.count+'</td><td class="py-2 px-3">'+r.rate+'</td><td class="py-2 px-3">'+r.total+'</td>';
-            body.appendChild(tr);
-          });
-        }
-        window.renderRules = function(html){ const r = byId('rulesContent'); if(r) r.innerHTML = html; }
-        window.renderAdmins = function(list){
-          const ul = document.getElementById('adminsList'); if(!ul) return; ul.innerHTML='';
-          list.forEach(a=>{
-            const li = document.createElement('li'); li.className='glass-ink rounded-xl p-3';
-            li.innerHTML = "<div class='text-sm font-semibold'>"+a.name+"</div><div class='text-xs text-gray-600'>"+(a.handle||'')+" "+(a.phone||'')+"</div>";
-            ul.appendChild(li);
-          });
-        }
-        window.addRequisiteRow = function(name, phone, bank, id){
-          const body = byId('reqBody'); if(!body) return;
-          const tr = document.createElement('tr'); tr.dataset.id = id || '';
-          tr.innerHTML = "<td class='py-2 px-3'>"+name+"</td><td class='py-2 px-3'>"+phone+" — "+bank+"</td><td class='py-2 px-3'><button class='glass-ink rounded-lg px-2 py-1 text-xs' onclick='window.deleteReqRow(""+(id||'')+"")'>Удалить</button></td>";
-          body.appendChild(tr);
-        }
-        window.deleteReqRow = function(id){ const row = document.querySelector("#reqBody tr[data-id='"+id+"']"); if(row) row.remove(); }
-        window.setAdminMode = function(enabled){ const sec = byId('view-admin'); if (sec) sec.classList.toggle('hidden', !enabled); }
-
-        byId('markShiftBtn')?.addEventListener('click', () => {
-          const name = byId('employeeSelect')?.value || '—';
-          const point = byId('pointSelect')?.value || '—';
-          const el = byId('checkinStatus'); if (el) el.textContent = 'Отмечено: '+name+' @ '+point+' • '+new Date().toLocaleString('ru-RU');
-        });
-      })();
-    }
+    (function(){
+      const nav = document.querySelector('.tabbar');
+      if (!nav.__bound) {
+        nav.__bound = true;
+        nav.addEventListener('click', (e)=>{
+          const btn = e.target.closest('button[data-target]');
+          if(!btn) return;
+          document.querySelectorAll('.tabbar button').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          const sel = btn.getAttribute('data-target');
+          const el = document.querySelector(sel);
+          if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+        }, {passive:true});
+      }
+    })();
   </script>
+
 </body>
+
 </html>
