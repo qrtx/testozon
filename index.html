@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Учёт смен ОЗОН</title>
+  <link rel="stylesheet" href="style.css?v=43" />
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    </head>
+<body>
+
+<div class="gradient-bg">
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+        <feColorMatrix in="blur" mode="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8" result="goo" />
+        <feBlend in="SourceGraphic" in2="goo" />
+      </filter>
+    </defs>
+  </svg>
+  <div class="gradients-container">
+    <div class="g1"></div>
+    <div class="g2"></div>
+    <div class="g3"></div>
+    <div class="g4"></div>
+    <div class="g5"></div>
+    <div class="interactive"></div>
+  </div>
+</div>
+
+  <header class="topbar"><span class="version">версия: 3.2</span>Учёт смен ОЗОН</header>
+  <main class="container">
+    
+  <div style="position:absolute; top:12px; right:20px;">
+    <button onclick="toggleAdminLogin()" style="padding:5px 10px; border-radius:4px; background:#44444457; color:#fff; border:none;">Админка</button>
+  </div>
+
+
+    
+  </div>
+    <section class='form-block'>
+      <select id='employee'>
+        <option>Сергей З.</option><option>Сергей Ш.</option><option>Арина</option><option>Андрей</option>
+        <option>Валера</option><option>Даша</option><option>Ростислав</option><option>Алексей</option><option>Саня</option>
+      </select>
+      <select id='point'>
+        <option value='МО_ХИМКИ_89'>МО_ХИМКИ_89 (2666₽)</option>
+        <option value='ХИМКИ_241'>ХИМКИ_241 (2000₽)</option>
+      </select>
+      <button onclick='markShift()'>Отметиться</button>
+    </section>
+    <section id='calendar'></section>
+
+    
+<section class='rules-block'>
+  <h2>📖 Правила и штрафы</h2>
+  <pre style="white-space: pre-wrap; word-break: break-word;">
+ВАЖНО: конкретный пункт не может получить более одного штрафа по одному пункту в день.
+    
+1.1. Нарушение графика смен — отсутствие без предупреждения или несогласованная смена — штраф 750₽.
+1.2. Несоблюдение чистоты на рабочем месте — мусор, бардак, неубранная зона клиента — штраф 500₽.
+1.3. Курение в помещении или возле входа — включая электронные сигареты — штраф 750₽.
+1.4. Не принятие перевозки вовремя — если транспорт стоял и ждал более 10 минут — штраф 500₽.
+1.5. Неопрятный вид сотрудника — грязная форма, отсутствие бейджа — штраф 500₽.
+1.6. Отказ от публикации брендирования ПВЗ — фото на фоне логотипа или флагов OZON — штраф 500₽, при повторном отказе — 1000₽.
+1.7. Приход второго сотрудника без предупреждения — незарегистрированный человек на смене — штраф 500₽.
+1.8. Грубость клиенту — повышенный тон, отказ от обслуживания, негативные комментарии — штраф 750₽.
+1.9. Присутствие посторонних лиц на территории ПВЗ без согласования — штраф 750₽.
+2.1. Несвоевременное предоставление информации (смена, приём тары, инцидент) — штраф 500₽.
+2.2. Несоблюдение этических норм при общении с клиентом. Нахождение на рабочем месте в головном уборе или верхней одежды — штраф 500₽.
+2.3. Присутствие в ПВЗ после 23:59 без согласования — штраф 500₽.
+2.4. Отсутствие сотрудника в зоне видимости камер, за исключением официальных перерывов — штраф 500₽.
+2.5. Приём возвратной тары без согласования — штраф 500₽.
+  </pre>
+</section>
+
+
+    
+<section class='bank-block'>
+  <h2>💳 Реквизиты для выплаты зарплаты</h2>
+  <div class="bank-form">
+    <select id="bankEmployee"></select>
+    <input id="bankPhone" placeholder="+79999999999" />
+    <input id="bankName" placeholder="Название банка" />
+    <button onclick="submitBankInfo()">Добавить</button>
+  </div>
+  <ul id="bankList"></ul>
+</section>
+
+<section class='contacts-block'>
+      <h2>📇 Контакты</h2>
+      <p><strong>Администратор:</strong> Сергей — <a href="https://t.me/sergeiseveroff" target="_blank">@sergeiseveroff</a></p>
+      <p><strong>Руководитель:</strong> Андрей — <a href="https://t.me/qwertyxyry" target="_blank">@qwertyxyry</a></p>
+    </section>
+  
+<div id="adminPanel" class="admin-panel" style="display:none;">
+  <h3>⚙️ Управление сотрудниками и пунктами</h3>
+  <div>
+    <label>Добавить сотрудника: </label>
+    <input id="newEmp" placeholder="Имя" />
+    <button onclick="addEmployee()">Добавить</button>
+    <label style="margin-left:20px;">Удалить:</label>
+    <select id="deleteEmp"></select>
+    <button onclick="deleteEmployee()">Удалить</button>
+  </div>
+  <div style="margin-top:20px;">
+      <label>Добавить пункт: </label>
+      <input id="newPoint" placeholder="Название" />
+      <input id="newRate" placeholder="Зарплата" />
+      <button onclick="addPoint()">Добавить</button>
+      <label style="margin-left:20px;">Удалить:</label>
+      <select id="deletePoint"></select>
+      <button onclick="deletePoint()">Удалить</button>
+  </div>
+  <div style="margin-top:20px;">
+    <button onclick="adminLogout()" style="background:#a00;">Выйти из админки</button>
+  </div>
+</div>
+<div id="salary-summary-container"></div>
+
+<div id="summary"></div>
+</main>
+
+
+  <footer class="footer">
+    Сделано в 2025 году — <strong>@polychromaticFox</strong> и <strong>@fox-dev-girl</strong>
+  </footer>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBx7N43Wpf0Ohh6197YLlv-ppeHHaJq_TQ",
+      authDomain: "ozon-shifts.firebaseapp.com",
+      databaseURL: "https://ozon-shifts-default-rtdb.firebaseio.com",
+      projectId: "ozon-shifts",
+      storageBucket: "ozon-shifts.firebasestorage.app",
+      messagingSenderId: "60204010303",
+      appId: "1:60204010303:web:09997f126723460335618a"
+    };
+  </script>
+  <script src="script.js?v=43"></script>
+
+  <div id="preloader" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:white;z-index:9999;display:flex;align-items:center;justify-content:center;font-size:24px;">
+    Загрузка...
+  </div>
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("preloader").style.display = "none";
+      }, 1500);
+    });
+  </script>
+</body>
+
+</html>

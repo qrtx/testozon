@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>QRTX Башня</title>
+  <link rel="stylesheet" href="./tower.css">
+
+</head>
+<body>
+	  <nav><a href="index.html">← Назад на сайт</a></nav>
+<!-- partial:index.partial.html -->
+<meta name="viewport" content="width=device-width,user-scalable=no">
+
+<div id="container">
+	<div id="game"></div>
+	<div id="score">0</div>
+	<div id="instructions">Кликни (тапни) или нажми Space что бы разместить блок </div>
+	<div class="game-over">
+		<h2>ПОПРОБУЙ ЕЩЕ РАЗ</h2>
+		<p>Ты безусловно молодец, но можешь лучше.</p>
+		<p>Клинни (тапни) или нажми Space что бы играть сначала.</p>
+	</div>
+	<div class="game-ready">
+		<div id="start-button">НАЧАТЬ</div>
+		<div></div>
+	</div>
+</div>
+<!-- partial -->
+  <script src='https://codepen.io/ste-vg/pen/zBVaZw.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.min.js'></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js'></script><script  src="./tower.js"></script>
+
+</body>
+</html>
